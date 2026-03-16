@@ -921,15 +921,15 @@ public class GameView extends VerticalLayout {
             "if(t<1)requestAnimationFrame(fr);else el.style.display='none'}" +
             "el.getBoundingClientRect();requestAnimationFrame(fr)};" +
             // --- Pipe-flow bump animation ---
-            // Same pipe approach: slide forward to collision point, then slide back.
+            // Overlays a red pipe on top of the arrow (no hiding original paths).
+            // Pipe slides forward to collision, then back. Original arrow stays intact.
             "window._uB=function(el,opx,opy,hx,hy,cst,bh,hh,mg,cs,bmpS,dur){" +
-            "var N=opx.length,pa=el.querySelectorAll('path');" +
-            "for(var i=0;i<pa.length;i++)pa[i].style.display='none';" +
+            "var N=opx.length;" +
             "var ext=Math.ceil(bmpS)+1;" +
             "var p=window._mkPipe(opx,opy,N,hx,hy,cst,mg,cs,ext);" +
             "var ns='http://www.w3.org/2000/svg',pipe=document.createElementNS(ns,'path');" +
             "pipe.setAttribute('d',p.d);pipe.setAttribute('fill','none');" +
-            "pipe.setAttribute('stroke','#c62828');pipe.setAttribute('stroke-width',String(bh*2.2));" +
+            "pipe.setAttribute('stroke','#c62828');pipe.setAttribute('stroke-width',String(bh*2.4));" +
             "pipe.setAttribute('stroke-linecap','round');pipe.setAttribute('stroke-linejoin','round');" +
             "pipe.setAttribute('stroke-dasharray',p.sl.toFixed(1)+' '+String(p.tl*2));" +
             "el.appendChild(pipe);" +
@@ -939,7 +939,7 @@ public class GameView extends VerticalLayout {
             "else{var bt=(t-pk)/(1-pk);off=(1-bt*bt*(3-2*bt))*maxD}" +
             "pipe.setAttribute('stroke-dashoffset',String(-off));" +
             "if(t<1)requestAnimationFrame(fr);" +
-            "else{el.removeChild(pipe);for(var i=0;i<pa.length;i++)pa[i].style.display=''}}" +
+            "else{if(pipe.parentNode)pipe.parentNode.removeChild(pipe)}}" +
             "el.getBoundingClientRect();requestAnimationFrame(fr)}" +
             "}"
         );
