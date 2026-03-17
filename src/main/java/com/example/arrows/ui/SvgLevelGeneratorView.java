@@ -5,7 +5,7 @@ import com.example.arrows.model.Arrow;
 import com.example.arrows.model.Level;
 import com.example.arrows.service.LevelGenerator;
 import com.example.arrows.service.LevelSolver;
-import com.example.arrows.signals.ArrowsGameSignals;
+import com.example.arrows.signals.GameService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.Div;
@@ -38,7 +38,7 @@ public class SvgLevelGeneratorView extends VerticalLayout {
     private final LevelGenerator generator;
     private final LevelSolver solver;
     private final GeneratedLevelStore store;
-    private final ArrowsGameSignals signals;
+    private final GameService signals;
 
     private String currentSvg;
     private String selectedPresetName;
@@ -68,7 +68,7 @@ public class SvgLevelGeneratorView extends VerticalLayout {
     public SvgLevelGeneratorView(LevelGenerator generator,
                                   LevelSolver solver,
                                   GeneratedLevelStore store,
-                                  ArrowsGameSignals signals) {
+                                  GameService signals) {
         this.generator = generator;
         this.solver = solver;
         this.store = store;
@@ -77,32 +77,21 @@ public class SvgLevelGeneratorView extends VerticalLayout {
         setSizeFull();
         setPadding(true);
         setAlignItems(Alignment.CENTER);
-        getStyle()
-                .set("background-color", "#1a1a2e")
-                .set("min-height", "100vh");
+        addClassName("generator-view");
 
         // Header
         H2 title = new H2("Level Generator");
-        title.getStyle()
-                .set("color", "#e94560")
-                .set("font-family", "monospace")
-                .set("margin-bottom", "0");
+        title.addClassName("generator-title");
         add(title);
 
         RouterLink backLink = new RouterLink("< Back to Game", GameView.class);
-        backLink.getStyle()
-                .set("color", "#e94560")
-                .set("text-decoration", "none")
-                .set("font-family", "monospace")
-                .set("margin-bottom", "16px");
+        backLink.addClassName("back-link");
         add(backLink);
 
         // Two-column layout
         HorizontalLayout columns = new HorizontalLayout();
         columns.setWidthFull();
-        columns.getStyle()
-                .set("max-width", "1000px")
-                .set("gap", "32px");
+        columns.addClassName("generator-columns");
 
         VerticalLayout leftPanel = buildLeftPanel();
         leftPanel.setWidth("50%");
@@ -121,48 +110,34 @@ public class SvgLevelGeneratorView extends VerticalLayout {
 
         // --- Shape selection section ---
         Span shapeLabel = new Span("Shape");
-        shapeLabel.getStyle()
-                .set("color", "#e0e0f0")
-                .set("font-family", "monospace")
-                .set("font-weight", "bold")
-                .set("font-size", "1.1em");
+        shapeLabel.addClassName("section-label");
         panel.add(shapeLabel);
 
         // Preset grid
         Span presetLabel = new Span("Pick a preset:");
-        presetLabel.getStyle()
-                .set("color", "#999ab0")
-                .set("font-family", "monospace")
-                .set("font-size", "0.85em");
+        presetLabel.addClassName("sub-label");
         panel.add(presetLabel);
 
         FlexLayout presetsGrid = new FlexLayout();
-        presetsGrid.getStyle()
-                .set("flex-wrap", "wrap")
-                .set("gap", "8px")
-                .set("margin-bottom", "8px");
+        presetsGrid.addClassName("presets-grid");
 
         addPresetButton(presetsGrid, "Heart", "heart.svg");
         addPresetButton(presetsGrid, "Star", "star.svg");
         addPresetButton(presetsGrid, "Smiley", "smiley.svg");
-        addPresetButton(presetsGrid, "Arrow", "arrow-up.svg");
-        addPresetButton(presetsGrid, "Diamond", "diamond.svg");
-        addPresetButton(presetsGrid, "Cross", "cross.svg");
+        addPresetButton(presetsGrid, "Cat", "cat.svg");
+        addPresetButton(presetsGrid, "Skull", "skull.svg");
+        addPresetButton(presetsGrid, "Crown", "crown.svg");
+        addPresetButton(presetsGrid, "Rocket", "rocket.svg");
+        addPresetButton(presetsGrid, "Paw", "paw.svg");
         addPresetButton(presetsGrid, "Lightning", "lightning.svg");
         addPresetButton(presetsGrid, "Moon", "moon.svg");
-        addPresetButton(presetsGrid, "Cat", "cat.svg");
+        addPresetButton(presetsGrid, "Cross", "cross.svg");
         addPresetButton(presetsGrid, "Tree", "tree.svg");
-        addPresetButton(presetsGrid, "Skull", "skull.svg");
-        addPresetButton(presetsGrid, "Puzzle", "puzzle.svg");
         panel.add(presetsGrid);
 
         // Upload
         Span orLabel = new Span("Or upload your own SVG:");
-        orLabel.getStyle()
-                .set("color", "#999ab0")
-                .set("font-family", "monospace")
-                .set("font-size", "0.85em")
-                .set("margin-top", "4px");
+        orLabel.addClassName("sub-label-upload");
         panel.add(orLabel);
 
         MemoryBuffer buffer = new MemoryBuffer();
@@ -189,12 +164,7 @@ public class SvgLevelGeneratorView extends VerticalLayout {
 
         // --- Settings section ---
         Span settingsLabel = new Span("Settings");
-        settingsLabel.getStyle()
-                .set("color", "#e0e0f0")
-                .set("font-family", "monospace")
-                .set("font-weight", "bold")
-                .set("font-size", "1.1em")
-                .set("margin-top", "16px");
+        settingsLabel.addClassName("section-label-settings");
         panel.add(settingsLabel);
 
         // Grid size
@@ -232,9 +202,7 @@ public class SvgLevelGeneratorView extends VerticalLayout {
         // Generate button
         Button generateBtn = new Button("Generate Preview", e -> generatePreview());
         generateBtn.addThemeVariants(ButtonVariant.PRIMARY);
-        generateBtn.getStyle()
-                .set("margin-top", "20px")
-                .set("font-family", "monospace");
+        generateBtn.addClassName("generate-btn");
         panel.add(generateBtn);
 
         return panel;
@@ -246,54 +214,39 @@ public class SvgLevelGeneratorView extends VerticalLayout {
         panel.setAlignItems(Alignment.CENTER);
 
         Span previewLabel = new Span("Preview");
-        previewLabel.getStyle()
-                .set("color", "#e0e0f0")
-                .set("font-family", "monospace")
-                .set("font-weight", "bold")
-                .set("font-size", "1.1em");
+        previewLabel.addClassName("section-label");
         panel.add(previewLabel);
 
         previewGrid = new Div();
-        previewGrid.getStyle()
-                .set("min-height", "300px")
-                .set("display", "flex")
-                .set("align-items", "center")
-                .set("justify-content", "center");
+        previewGrid.addClassName("preview-grid");
 
         Span placeholder = new Span("Select a shape, then click Generate");
-        placeholder.getStyle()
-                .set("color", "#555580")
-                .set("font-family", "monospace")
-                .set("text-align", "center");
+        placeholder.addClassName("placeholder-text");
         previewGrid.add(placeholder);
         panel.add(previewGrid);
 
         // Status
         statusBadge = new Span("");
-        statusBadge.getStyle()
-                .set("font-family", "monospace")
-                .set("margin-top", "8px");
+        statusBadge.addClassName("status-badge");
         panel.add(statusBadge);
 
         moveEstimate = new Span("");
-        moveEstimate.getStyle()
-                .set("color", "#80cbc4")
-                .set("font-family", "monospace");
+        moveEstimate.addClassName("move-estimate");
         panel.add(moveEstimate);
 
         // Actions
         HorizontalLayout actions = new HorizontalLayout();
-        actions.getStyle().set("margin-top", "16px");
+        actions.addClassName("actions-top");
 
         saveBtn = new Button("Save & Play", e -> saveAndPlay());
         saveBtn.addThemeVariants(ButtonVariant.PRIMARY);
         saveBtn.setEnabled(false);
-        saveBtn.getStyle().set("font-family", "monospace");
+        saveBtn.addClassName("mono-btn");
 
         regenerateBtn = new Button("Regenerate", e -> regenerate());
         regenerateBtn.addThemeVariants(ButtonVariant.TERTIARY);
         regenerateBtn.setEnabled(false);
-        regenerateBtn.getStyle().set("font-family", "monospace");
+        regenerateBtn.addClassName("mono-btn");
 
         actions.add(saveBtn, regenerateBtn);
         panel.add(actions);
@@ -321,13 +274,7 @@ public class SvgLevelGeneratorView extends VerticalLayout {
             }
         });
         btn.addThemeVariants(ButtonVariant.SMALL);
-        btn.getStyle()
-                .set("font-family", "monospace")
-                .set("--vaadin-button-background", "#16213e")
-                .set("--vaadin-button-text-color", "#e0e0f0")
-                .set("border", "2px solid #333355")
-                .set("border-radius", "8px")
-                .set("transition", "all 0.15s ease");
+        btn.addClassName("preset-btn");
         btn.getElement().setAttribute("data-preset", label);
         presetButtons.add(btn);
         container.add(btn);
@@ -339,16 +286,10 @@ public class SvgLevelGeneratorView extends VerticalLayout {
             boolean selected = preset != null && preset.equals(selectedPresetName);
             if (selected) {
                 btn.addThemeVariants(ButtonVariant.PRIMARY);
-                btn.getStyle()
-                        .set("border", "2px solid #e94560")
-                        .set("--vaadin-button-background", "#e94560")
-                        .set("--vaadin-button-text-color", "white");
+                btn.addClassName("preset-btn-selected");
             } else {
                 btn.removeThemeVariants(ButtonVariant.PRIMARY);
-                btn.getStyle()
-                        .set("border", "2px solid #333355")
-                        .set("--vaadin-button-background", "#16213e")
-                        .set("--vaadin-button-text-color", "#e0e0f0");
+                btn.removeClassName("preset-btn-selected");
             }
         }
     }
@@ -367,7 +308,8 @@ public class SvgLevelGeneratorView extends VerticalLayout {
             if (generatedLevel != null) {
                 renderPreview(generatedLevel);
                 statusBadge.setText(generatedLevel.getArrows().size() + " arrows — Solvable!");
-                statusBadge.getStyle().set("color", "#81c784");
+                statusBadge.removeClassName("status-unsolvable");
+                statusBadge.addClassName("status-solvable");
 
                 Optional<List<String>> solution = solver.solve(generatedLevel);
                 solution.ifPresent(sol ->
@@ -378,7 +320,8 @@ public class SvgLevelGeneratorView extends VerticalLayout {
             } else {
                 previewGrid.removeAll();
                 statusBadge.setText("No solution found — try different settings");
-                statusBadge.getStyle().set("color", "#e57373");
+                statusBadge.removeClassName("status-solvable");
+                statusBadge.addClassName("status-unsolvable");
                 moveEstimate.setText("");
                 saveBtn.setEnabled(false);
             }
@@ -386,12 +329,14 @@ public class SvgLevelGeneratorView extends VerticalLayout {
             Notification.show(e.getMessage(), 3000, Notification.Position.BOTTOM_START)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
             statusBadge.setText(e.getMessage());
-            statusBadge.getStyle().set("color", "#e57373");
+            statusBadge.removeClassName("status-solvable");
+            statusBadge.addClassName("status-unsolvable");
         } catch (Exception e) {
             Notification.show("Error: " + e.getMessage(), 3000, Notification.Position.BOTTOM_START)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
             statusBadge.setText("Error: " + e.getMessage());
-            statusBadge.getStyle().set("color", "#e57373");
+            statusBadge.removeClassName("status-solvable");
+            statusBadge.addClassName("status-unsolvable");
         }
     }
 
@@ -409,10 +354,7 @@ public class SvgLevelGeneratorView extends VerticalLayout {
         svg.setAttribute("viewBox", "0 0 " + totalSize + " " + totalSize);
         svg.setAttribute("width", String.valueOf(Math.min(totalSize, 440)));
         svg.setAttribute("height", String.valueOf(Math.min(totalSize, 440)));
-        svg.getStyle()
-                .set("display", "block")
-                .set("border-radius", "8px")
-                .set("background-color", "#0f0f23");
+        svg.setAttribute("class", "preview-svg");
 
         Element bg = new Element("rect");
         bg.setAttribute("width", String.valueOf(totalSize));

@@ -1,3 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <path d="M15,25 L5,2 L25,18 L40,10 L50,5 L60,10 L75,18 L95,2 L85,25 C95,35 95,55 85,70 L75,85 C65,98 35,98 25,85 L15,70 C5,55 5,35 15,25 Z" fill="black"/>
+  <circle cx="35" cy="45" r="6" fill="white"/>
+  <circle cx="65" cy="45" r="6" fill="white"/>
 </svg>

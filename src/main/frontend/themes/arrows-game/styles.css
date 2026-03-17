@@ -1,0 +1,346 @@
+/* === Shared === */
+
+.game-view,
+.generator-view {
+    background-color: #1a1a2e;
+    min-height: 100vh;
+}
+
+/* === Game View === */
+
+.header {
+    width: 100%;
+    max-width: 560px;
+}
+
+.title-row {
+    padding: 0;
+}
+
+.header-actions {
+    gap: 8px;
+}
+
+.game-title {
+    color: #e94560;
+    font-family: monospace;
+    font-size: 1.4em;
+    font-weight: bold;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.level-title {
+    color: #e0e0f0;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 0.95em;
+    align-self: center;
+}
+
+.stats-group {
+    gap: 16px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+.stat-col {
+    min-width: 50px;
+}
+
+.stat-label {
+    color: #666680;
+    font-family: monospace;
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-value {
+    color: #80cbc4;
+    font-family: monospace;
+    font-size: 1.1em;
+}
+
+.hearts-label {
+    color: #e57373;
+    font-family: monospace;
+    font-size: 1.3em;
+    white-space: nowrap;
+}
+
+.board-container {
+    margin-top: 16px;
+    overflow: hidden;
+    border-radius: 12px;
+    display: inline-block;
+}
+
+/* SVG board */
+.board-svg {
+    display: block;
+    overflow: visible;
+    border-radius: 12px;
+    background-color: #0f0f23;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* Arrow group */
+.arrow-group {
+    cursor: pointer;
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: #e94560;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    cursor: pointer;
+    font-family: monospace;
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: #e94560;
+    border: 1px solid #e94560;
+    border-radius: 8px;
+    padding: 8px 20px;
+    cursor: pointer;
+    font-family: monospace;
+}
+
+.btn-green {
+    background-color: #2e7d32;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    cursor: pointer;
+    font-family: monospace;
+}
+
+/* Dialog */
+.dialog-content {
+    background-color: #16213e;
+}
+
+/* Win dialog */
+.win-title {
+    color: #ffd54f;
+    font-family: monospace;
+    text-align: center;
+    animation: winPulse 0.6s ease-in-out;
+}
+
+.win-moves-info {
+    color: #80cbc4;
+    font-family: monospace;
+    margin-top: 4px;
+}
+
+.win-levels-info {
+    color: #a0a0c0;
+    font-family: monospace;
+    margin-top: 4px;
+}
+
+/* Lose dialog */
+.lose-title {
+    color: #e57373;
+    font-family: monospace;
+}
+
+.lose-hint {
+    color: #a0a0c0;
+    font-family: monospace;
+    margin-top: 4px;
+}
+
+/* Role info variants */
+.role-info {
+    font-family: monospace;
+    font-size: 0.95em;
+}
+
+.role-info-my-win {
+    color: #81c784;
+}
+
+.role-info-other {
+    color: #90caf9;
+}
+
+.role-info-my-lose {
+    color: #ef9a9a;
+}
+
+.dialog-btn-top {
+    margin-top: 16px;
+}
+
+/* Animations */
+@keyframes winPulse {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes failGlow {
+    0% { opacity: 1; stroke-width: 5; }
+    50% { opacity: 0.4; stroke-width: 2; }
+    100% { opacity: 0.9; stroke-width: 3; }
+}
+
+@keyframes exitPulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.7; }
+    100% { transform: scale(0.3); opacity: 0; }
+}
+
+/* === Generator View — Lumo dark overrides for form components === */
+
+.generator-view {
+    --lumo-body-text-color: #e0e0f0;
+    --lumo-secondary-text-color: #999ab0;
+    --lumo-tertiary-text-color: #666680;
+    --lumo-disabled-text-color: #555580;
+    --lumo-base-color: #16213e;
+    --lumo-contrast: #e0e0f0;
+    --lumo-contrast-90pct: rgba(224, 224, 240, 0.9);
+    --lumo-contrast-80pct: rgba(224, 224, 240, 0.8);
+    --lumo-contrast-70pct: rgba(224, 224, 240, 0.7);
+    --lumo-contrast-60pct: rgba(224, 224, 240, 0.6);
+    --lumo-contrast-50pct: rgba(224, 224, 240, 0.5);
+    --lumo-contrast-40pct: rgba(224, 224, 240, 0.4);
+    --lumo-contrast-30pct: rgba(224, 224, 240, 0.3);
+    --lumo-contrast-20pct: rgba(224, 224, 240, 0.2);
+    --lumo-contrast-10pct: rgba(224, 224, 240, 0.1);
+    --lumo-contrast-5pct: rgba(224, 224, 240, 0.05);
+    --lumo-primary-color: #e94560;
+    --lumo-primary-text-color: #e94560;
+    --lumo-primary-color-50pct: rgba(233, 69, 96, 0.5);
+    --lumo-primary-color-10pct: rgba(233, 69, 96, 0.1);
+}
+
+.generator-title {
+    color: #e94560;
+    font-family: monospace;
+    margin-bottom: 0;
+    text-align: center;
+}
+
+.back-link {
+    color: #e94560;
+    text-decoration: none;
+    font-family: monospace;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.generator-columns {
+    max-width: 1000px;
+    gap: 32px;
+}
+
+.section-label {
+    color: #e0e0f0;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.section-label-settings {
+    color: #e0e0f0;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-top: 16px;
+}
+
+.sub-label {
+    color: #999ab0;
+    font-family: monospace;
+    font-size: 0.85em;
+}
+
+.sub-label-upload {
+    color: #999ab0;
+    font-family: monospace;
+    font-size: 0.85em;
+    margin-top: 4px;
+}
+
+.presets-grid {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.generate-btn {
+    margin-top: 20px;
+    font-family: monospace;
+}
+
+.preview-grid {
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.placeholder-text {
+    color: #555580;
+    font-family: monospace;
+    text-align: center;
+}
+
+.status-badge {
+    font-family: monospace;
+    margin-top: 8px;
+}
+
+.status-solvable {
+    color: #81c784;
+}
+
+.status-unsolvable {
+    color: #e57373;
+}
+
+.move-estimate {
+    color: #80cbc4;
+    font-family: monospace;
+}
+
+.actions-top {
+    margin-top: 16px;
+}
+
+.mono-btn {
+    font-family: monospace;
+}
+
+/* Preset buttons */
+.preset-btn {
+    font-family: monospace;
+    --vaadin-button-background: #16213e;
+    --vaadin-button-text-color: #e0e0f0;
+    border: 2px solid #333355;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+}
+
+.preset-btn.preset-btn-selected {
+    border: 2px solid #e94560;
+    --vaadin-button-background: #e94560;
+    --vaadin-button-text-color: white;
+}
+
+/* Preview SVG */
+.preview-svg {
+    display: block;
+    border-radius: 8px;
+    background-color: #0f0f23;
+}

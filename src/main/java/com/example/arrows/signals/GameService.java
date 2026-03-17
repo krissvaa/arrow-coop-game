@@ -25,9 +25,9 @@ import java.util.List;
  * {@code ui.access()} needed.
  */
 @Component
-public class ArrowsGameSignals {
+public class GameService {
 
-    private static final Logger log = LoggerFactory.getLogger(ArrowsGameSignals.class);
+    private static final Logger log = LoggerFactory.getLogger(GameService.class);
 
     private final LevelsRepository levelsRepository;
     private final MazeGenerator mazeGenerator;
@@ -60,7 +60,7 @@ public class ArrowsGameSignals {
     private long lastMoveTimestamp;
     private int lastCollisionSteps;
 
-    public ArrowsGameSignals(LevelsRepository levelsRepository,
+    public GameService(LevelsRepository levelsRepository,
                               MazeGenerator mazeGenerator,
                               LevelGenerator levelGenerator) {
         this.levelsRepository = levelsRepository;

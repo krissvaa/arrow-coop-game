@@ -1,7 +1,7 @@
 package com.example.arrows.ui;
 
 import com.example.arrows.model.Direction;
-import com.example.arrows.signals.ArrowsGameSignals;
+import com.example.arrows.signals.GameService;
 import com.example.arrows.signals.GameSnapshot;
 import com.example.arrows.signals.GameSnapshot.ArrowData;
 import com.example.arrows.signals.MoveResult;
@@ -9,14 +9,12 @@ import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.dom.Element;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.signals.Signal;
 import com.vaadin.flow.signals.shared.SharedValueSignal;
 
@@ -29,7 +27,7 @@ import java.util.Map;
 @Route("")
 public class GameView extends VerticalLayout {
 
-    private final ArrowsGameSignals gameService;
+    private final GameService gameService;
     private final SharedValueSignal<GameSnapshot> gameSignal;
 
     private Div boardContainer;
@@ -58,16 +56,14 @@ public class GameView extends VerticalLayout {
     private static final int CELL_PAD = 2;
     private static final int BOARD_PAD = 6;
 
-    public GameView(ArrowsGameSignals gameService) {
+    public GameView(GameService gameService) {
         this.gameService = gameService;
         this.gameSignal = gameService.gameState();
 
         setSizeFull();
         setAlignItems(Alignment.CENTER);
         setPadding(true);
-        getStyle()
-                .set("background-color", "#1a1a2e")
-                .set("min-height", "100vh");
+        addClassName("game-view");
 
         buildUI();
         setupSignalBindings();
@@ -76,70 +72,74 @@ public class GameView extends VerticalLayout {
     private void buildUI() {
         removeAll();
 
-        H1 title = new H1("Arrows Puzzle");
-        title.getStyle()
-                .set("color", "#e94560")
-                .set("font-family", "monospace")
-                .set("margin-bottom", "4px")
-                .set("margin-top", "12px");
-        add(title);
+        // Compact header block — constrained to board width
+        VerticalLayout header = new VerticalLayout();
+        header.setPadding(false);
+        header.setSpacing(false);
+        header.addClassName("header");
 
-        Span subtitle = new Span("Cooperative - everyone plays the same board!");
-        subtitle.getStyle()
-                .set("color", "#a0a0c0")
-                .set("font-family", "monospace")
-                .set("font-size", "0.85em")
-                .set("margin-bottom", "16px")
-                .set("display", "block");
-        add(subtitle);
+        // Row 1: title + actions
+        HorizontalLayout titleRow = new HorizontalLayout();
+        titleRow.setWidthFull();
+        titleRow.setAlignItems(Alignment.BASELINE);
+        titleRow.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        titleRow.addClassName("title-row");
 
-        levelTitle = new Span();
-        levelTitle.getStyle()
-                .set("color", "#e0e0f0")
-                .set("font-family", "monospace")
-                .set("font-weight", "bold")
-                .set("font-size", "1.1em");
-        add(levelTitle);
-
-        HorizontalLayout statsBar = new HorizontalLayout();
-        statsBar.setAlignItems(Alignment.CENTER);
-        statsBar.getStyle()
-                .set("margin-top", "12px")
-                .set("gap", "24px");
-
-        movesLabel = new Span();
-        movesLabel.getStyle()
-                .set("color", "#80cbc4")
-                .set("font-family", "monospace");
-
-        heartsLabel = new Span();
-        heartsLabel.getStyle()
-                .set("color", "#e57373")
-                .set("font-family", "monospace")
-                .set("font-size", "1.3em");
-
-        arrowsRemaining = new Span();
-        arrowsRemaining.getStyle()
-                .set("color", "#a0a0c0")
-                .set("font-family", "monospace")
-                .set("font-size", "0.9em");
-
-        statsBar.add(heartsLabel, movesLabel, arrowsRemaining);
-        add(statsBar);
-
-        boardContainer = new Div();
-        boardContainer.getStyle().set("margin-top", "16px");
-        add(boardContainer);
+        Span title = new Span("Arrows Puzzle");
+        title.addClassName("game-title");
 
         HorizontalLayout actions = new HorizontalLayout();
-        actions.getStyle().set("margin-top", "16px").set("gap", "12px");
+        actions.setAlignItems(Alignment.CENTER);
+        actions.addClassName("header-actions");
 
-        restartBtn = new Button("Restart Level", e -> {
+        restartBtn = new Button("Restart", e -> {
             animatingUntil = 0;
             gameService.restartLevel();
             closeDialog();
         });
         styleButton(restartBtn, false);
+
+        Button customBtn = new Button("Custom Level", e ->
+                getUI().ifPresent(ui -> ui.navigate(SvgLevelGeneratorView.class)));
+        customBtn.addClassName("btn-green");
+
+        actions.add(restartBtn, customBtn);
+        titleRow.add(title, actions);
+        header.add(titleRow);
+
+        // Row 2: level name (centered)
+        levelTitle = new Span();
+        levelTitle.addClassName("level-title");
+        header.add(levelTitle);
+
+        // Row 3: stacked stats (centered)
+        HorizontalLayout stats = new HorizontalLayout();
+        stats.setAlignItems(Alignment.END);
+        stats.setJustifyContentMode(JustifyContentMode.CENTER);
+        stats.setWidthFull();
+        stats.addClassName("stats-group");
+
+        heartsLabel = new Span();
+        heartsLabel.addClassName("hearts-label");
+
+        movesLabel = new Span();
+        movesLabel.addClassName("stat-value");
+
+        arrowsRemaining = new Span();
+        arrowsRemaining.addClassName("stat-value");
+
+        stats.add(
+                buildStat("Lives", heartsLabel),
+                buildStat("Moves", movesLabel),
+                buildStat("Arrows", arrowsRemaining)
+        );
+        header.add(stats);
+
+        add(header);
+
+        boardContainer = new Div();
+        boardContainer.addClassName("board-container");
+        add(boardContainer);
 
         nextLevelBtn = new Button("Next Level", e -> {
             animatingUntil = 0;
@@ -148,18 +148,7 @@ public class GameView extends VerticalLayout {
         });
         styleButton(nextLevelBtn, true);
         nextLevelBtn.setVisible(false);
-
-        actions.add(restartBtn, nextLevelBtn);
-        add(actions);
-
-        RouterLink genLink = new RouterLink("Create Custom Level", SvgLevelGeneratorView.class);
-        genLink.getStyle()
-                .set("color", "#e94560")
-                .set("text-decoration", "none")
-                .set("font-family", "monospace")
-                .set("margin-top", "20px")
-                .set("font-size", "0.9em");
-        add(genLink);
+        add(nextLevelBtn);
     }
 
     // ====== Reactive signal bindings ======
@@ -170,13 +159,13 @@ public class GameView extends VerticalLayout {
                 "Level " + s.levelId() + ": " + s.levelTitle()
                         + " (" + s.gridSize() + "x" + s.gridSize() + ")"));
 
-        movesLabel.bindText(gameSignal.map(s -> "Moves: " + s.moves()));
+        movesLabel.bindText(gameSignal.map(s -> String.valueOf(s.moves())));
 
         heartsLabel.bindText(gameSignal.map(s -> heartsDisplay(s.hearts())));
 
         arrowsRemaining.bindText(gameSignal.map(s -> {
             long rem = s.arrows().stream().filter(a -> !a.exited()).count();
-            return rem + "/" + s.arrows().size() + " arrows left";
+            return rem + "/" + s.arrows().size();
         }));
 
         // Board rendering effect — handles SVG and cross-session animations
@@ -238,17 +227,7 @@ public class GameView extends VerticalLayout {
         svg.setAttribute("viewBox", "0 0 " + totalSize + " " + totalSize);
         svg.setAttribute("width", String.valueOf(totalSize));
         svg.setAttribute("height", String.valueOf(totalSize));
-        svg.getStyle()
-                .set("display", "block")
-                .set("overflow", "visible")
-                .set("border-radius", "12px")
-                .set("background-color", "#0f0f23")
-                .set("box-shadow", "0 4px 16px rgba(0,0,0,0.5)");
-
-        boardContainer.getStyle()
-                .set("overflow", "hidden")
-                .set("border-radius", "12px")
-                .set("display", "inline-block");
+        svg.setAttribute("class", "board-svg");
 
         // Defs
         Element defs = new Element("defs");
@@ -346,7 +325,7 @@ public class GameView extends VerticalLayout {
     private Element createArrowGroup(ArrowData arrow, int cs, boolean isFailed) {
         Element g = new Element("g");
         g.setAttribute("data-arrow-id", arrow.id());
-        g.getStyle().set("cursor", "pointer");
+        g.setAttribute("class", "arrow-group");
 
         String pathD = buildArrowPath(arrow, cs);
         String color = isFailed ? "#c62828" : arrow.color();
@@ -511,27 +490,27 @@ public class GameView extends VerticalLayout {
      */
     private int playExitUnravel(Element el, ArrowData arrow, int cs, int gs) {
         int[][] segs = arrow.segments();
-        int n = segs.length;
+        int segCount = segs.length;
         Direction dir = arrow.headDirection();
 
         // Build pixel coordinate arrays as JSON
-        StringBuilder pxArr = new StringBuilder("[");
-        StringBuilder pyArr = new StringBuilder("[");
-        for (int i = 0; i < n; i++) {
-            if (i > 0) { pxArr.append(","); pyArr.append(","); }
-            pxArr.append(f(cellX(segs[i][1], cs) + cs / 2.0));
-            pyArr.append(f(cellY(segs[i][0], cs) + cs / 2.0));
+        StringBuilder centersX = new StringBuilder("[");
+        StringBuilder centersY = new StringBuilder("[");
+        for (int i = 0; i < segCount; i++) {
+            if (i > 0) { centersX.append(","); centersY.append(","); }
+            centersX.append(f(cellX(segs[i][1], cs) + cs / 2.0));
+            centersY.append(f(cellY(segs[i][0], cs) + cs / 2.0));
         }
-        pxArr.append("]");
-        pyArr.append("]");
+        centersX.append("]");
+        centersY.append("]");
 
-        double bh = Math.max(2.0, cs * 0.09);
-        double hh = bh + Math.max(3.0, cs * 0.20);
+        double bodyHalf = Math.max(2.0, cs * 0.09);
+        double headHalf = bodyHalf + Math.max(3.0, cs * 0.20);
         double margin = Math.max(1.5, cs * 0.08);
         int cellStep = cs + CELL_PAD;
 
         // Distance from head to grid edge in head direction
-        int[] head = segs[n - 1];
+        int[] head = segs[segCount - 1];
         int distToEdge = switch (dir) {
             case RIGHT -> gs - 1 - head[1];
             case LEFT -> head[1];
@@ -539,54 +518,37 @@ public class GameView extends VerticalLayout {
             case UP -> head[0];
         };
 
-        int totalS = distToEdge + n + 2;  // +2 extra to ensure full exit
-        int duration = Math.max(600, Math.min(1600, totalS * 45));
+        int totalSteps = distToEdge + segCount + 2;  // +2 extra to ensure full exit
+        int duration = Math.max(300, totalSteps * 70); // linear speed: 70ms per cell
 
         el.executeJs(
-            "window._uA(this," +
-            pxArr + "," + pyArr + "," +
+            "window._animateExit(this," +
+            centersX + "," + centersY + "," +
             dir.dCol() + "," + dir.dRow() + "," +
-            cellStep + "," + f(bh) + "," + f(hh) + "," + f(margin) + "," + cs + "," +
-            totalS + "," + duration + ")"
+            cellStep + "," + f(bodyHalf) + "," + f(headHalf) + "," + f(margin) + "," + cs + "," +
+            totalSteps + "," + duration + ")"
         );
 
         return duration;
     }
 
     /**
-     * Play a snake-like bump animation: head snakes forward, hits obstacle, snakes back.
+     * Play a bump animation: arrow slides forward toward collision, then bounces back.
+     * The entire arrow group is translated, preserving its shape and arrowhead.
      * Returns the animation duration in ms.
      */
-    private int playBumpUnravel(Element el, ArrowData arrow, int cs, int gs, int bumpSteps) {
-        int[][] segs = arrow.segments();
-        int n = segs.length;
+    private int playBumpAnimation(Element el, ArrowData arrow, int cs, int bumpSteps) {
+        int segCount = arrow.segments().length;
         Direction dir = arrow.headDirection();
-
-        StringBuilder pxArr = new StringBuilder("[");
-        StringBuilder pyArr = new StringBuilder("[");
-        for (int i = 0; i < n; i++) {
-            if (i > 0) { pxArr.append(","); pyArr.append(","); }
-            pxArr.append(f(cellX(segs[i][1], cs) + cs / 2.0));
-            pyArr.append(f(cellY(segs[i][0], cs) + cs / 2.0));
-        }
-        pxArr.append("]");
-        pyArr.append("]");
-
-        double bh = Math.max(2.0, cs * 0.09);
-        double hh = bh + Math.max(3.0, cs * 0.20);
-        double margin = Math.max(1.5, cs * 0.08);
         int cellStep = cs + CELL_PAD;
 
-        // How far to snake forward (in segment units) before bouncing back
-        double bmpS = Math.max(0.5, bumpSteps + 0.5);
-        int duration = Math.max(500, Math.min(1000, (int)(bmpS * 80) + n * 30));
+        double bumpDist = Math.max(0.5, bumpSteps + 0.5);
+        int duration = Math.max(500, Math.min(1000, (int)(bumpDist * 80) + segCount * 30));
 
         el.executeJs(
-            "window._uB(this," +
-            pxArr + "," + pyArr + "," +
+            "window._animateBump(this," +
             dir.dCol() + "," + dir.dRow() + "," +
-            cellStep + "," + f(bh) + "," + f(hh) + "," + f(margin) + "," + cs + "," +
-            f(bmpS) + "," + duration + ")"
+            cellStep + "," + f(bumpDist) + "," + duration + ")"
         );
 
         return duration;
@@ -613,7 +575,7 @@ public class GameView extends VerticalLayout {
             GameSnapshot.MoveEvent move = snap.lastMove();
             int bumpSteps = move != null ? move.collisionSteps() : 1;
 
-            int duration = playBumpUnravel(el, arrow, cs, gs, bumpSteps);
+            int duration = playBumpAnimation(el, arrow, cs, bumpSteps);
             animatingUntil = now + duration;
             scheduleRerender(duration + 50);
         }
@@ -672,7 +634,7 @@ public class GameView extends VerticalLayout {
             GameSnapshot.MoveEvent move = latestSnap != null ? latestSnap.lastMove() : null;
             int bumpSteps = move != null ? move.collisionSteps() : 1;
 
-            int duration = playBumpUnravel(el, arrow, cs, gs, bumpSteps);
+            int duration = playBumpAnimation(el, arrow, cs, bumpSteps);
             animatingUntil = now + duration;
             scheduleRerender(duration + 50);
         }
@@ -738,34 +700,22 @@ public class GameView extends VerticalLayout {
         VerticalLayout content = new VerticalLayout();
         content.setAlignItems(Alignment.CENTER);
         content.setPadding(true);
-        content.getStyle().set("background-color", "#16213e");
+        content.addClassName("dialog-content");
 
         H2 winTitle = new H2(myMove ? "You cleared the last arrow!" : "Level Complete!");
-        winTitle.getStyle()
-                .set("color", "#ffd54f")
-                .set("font-family", "monospace")
-                .set("text-align", "center")
-                .set("animation", "winPulse 0.6s ease-in-out");
+        winTitle.addClassName("win-title");
 
         Span roleInfo = new Span(myMove
                 ? "You made the winning move!"
                 : "Another player cleared the board!");
-        roleInfo.getStyle()
-                .set("color", myMove ? "#81c784" : "#90caf9")
-                .set("font-family", "monospace")
-                .set("font-size", "0.95em");
+        roleInfo.addClassName("role-info");
+        roleInfo.addClassName(myMove ? "role-info-my-win" : "role-info-other");
 
         Span movesInfo = new Span("Completed in " + snap.moves() + " moves");
-        movesInfo.getStyle()
-                .set("color", "#80cbc4")
-                .set("font-family", "monospace")
-                .set("margin-top", "4px");
+        movesInfo.addClassName("win-moves-info");
 
         Span levelsInfo = new Span(snap.levelsCompleted() + " levels completed together");
-        levelsInfo.getStyle()
-                .set("color", "#a0a0c0")
-                .set("font-family", "monospace")
-                .set("margin-top", "4px");
+        levelsInfo.addClassName("win-levels-info");
 
         Button nextBtn = new Button("Next Level", e -> {
             animatingUntil = 0;
@@ -773,7 +723,7 @@ public class GameView extends VerticalLayout {
             closeDialog();
         });
         styleButton(nextBtn, true);
-        nextBtn.getStyle().set("margin-top", "16px");
+        nextBtn.addClassName("dialog-btn-top");
 
         content.add(winTitle, roleInfo, movesInfo, levelsInfo, nextBtn);
         dialog.add(content);
@@ -790,26 +740,19 @@ public class GameView extends VerticalLayout {
         VerticalLayout content = new VerticalLayout();
         content.setAlignItems(Alignment.CENTER);
         content.setPadding(true);
-        content.getStyle().set("background-color", "#16213e");
+        content.addClassName("dialog-content");
 
         H2 loseTitle = new H2("Out of Hearts!");
-        loseTitle.getStyle()
-                .set("color", "#e57373")
-                .set("font-family", "monospace");
+        loseTitle.addClassName("lose-title");
 
         Span roleInfo = new Span(myMove
                 ? "Your move used the last heart..."
                 : "Another player used the last heart!");
-        roleInfo.getStyle()
-                .set("color", myMove ? "#ef9a9a" : "#90caf9")
-                .set("font-family", "monospace")
-                .set("font-size", "0.95em");
+        roleInfo.addClassName("role-info");
+        roleInfo.addClassName(myMove ? "role-info-my-lose" : "role-info-other");
 
         Span hint = new Span("Work together - try a different order!");
-        hint.getStyle()
-                .set("color", "#a0a0c0")
-                .set("font-family", "monospace")
-                .set("margin-top", "4px");
+        hint.addClassName("lose-hint");
 
         Button retryBtn = new Button("Restart Level", e -> {
             animatingUntil = 0;
@@ -817,7 +760,7 @@ public class GameView extends VerticalLayout {
             closeDialog();
         });
         styleButton(retryBtn, true);
-        retryBtn.getStyle().set("margin-top", "16px");
+        retryBtn.addClassName("dialog-btn-top");
 
         content.add(loseTitle, roleInfo, hint, retryBtn);
         dialog.add(content);
@@ -851,23 +794,20 @@ public class GameView extends VerticalLayout {
         return sb.toString();
     }
 
+    private VerticalLayout buildStat(String label, Span valueSpan) {
+        VerticalLayout col = new VerticalLayout();
+        col.setPadding(false);
+        col.setSpacing(false);
+        col.setAlignItems(Alignment.CENTER);
+        col.addClassName("stat-col");
+        Span labelSpan = new Span(label);
+        labelSpan.addClassName("stat-label");
+        col.add(labelSpan, valueSpan);
+        return col;
+    }
+
     private void styleButton(Button btn, boolean primary) {
-        if (primary) {
-            btn.getStyle()
-                    .set("background-color", "#e94560")
-                    .set("color", "white")
-                    .set("border", "none");
-        } else {
-            btn.getStyle()
-                    .set("background-color", "transparent")
-                    .set("color", "#e94560")
-                    .set("border", "1px solid #e94560");
-        }
-        btn.getStyle()
-                .set("border-radius", "8px")
-                .set("padding", "8px 20px")
-                .set("cursor", "pointer")
-                .set("font-family", "monospace");
+        btn.addClassName(primary ? "btn-primary" : "btn-secondary");
     }
 
     // ====== Lifecycle ======
@@ -876,72 +816,130 @@ public class GameView extends VerticalLayout {
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
 
-        // Inject CSS animations and JS pipe-flow animation functions (once per page)
-        getElement().executeJs(
-            "if (!document.getElementById('game-anim-style')) {" +
-            "  var s = document.createElement('style');" +
-            "  s.id = 'game-anim-style';" +
-            "  s.textContent = '" +
-            "@keyframes winPulse { 0%{transform:scale(0.5);opacity:0} 50%{transform:scale(1.2)} 100%{transform:scale(1);opacity:1} } " +
-            "@keyframes failGlow { 0%{opacity:1;stroke-width:5} 50%{opacity:0.4;stroke-width:2} 100%{opacity:0.9;stroke-width:3} } " +
-            "@keyframes exitPulse { 0%{transform:scale(1);opacity:1} 50%{transform:scale(1.15);opacity:0.7} 100%{transform:scale(0.3);opacity:0} }';" +
-            "  document.head.appendChild(s);" +
-            "}" +
-            // --- Helper: build polyline path + cumulative lengths ---
-            "if(!window._mkPipe){" +
-            "window._mkPipe=function(opx,opy,N,hx,hy,cst,mg,cs,extCells){" +
-            "var dx0,dy0;" +
-            "if(N>1){dx0=opx[1]-opx[0];dy0=opy[1]-opy[0]}else{dx0=hx*cst;dy0=hy*cst}" +
-            "var dl=Math.sqrt(dx0*dx0+dy0*dy0);if(dl>0.01){dx0/=dl;dy0/=dl}" +
-            "var te=cs/2-mg,pts=[[opx[0]-dx0*te,opy[0]-dy0*te]];" +
-            "for(var i=0;i<N;i++)pts.push([opx[i],opy[i]]);" +
-            "for(var k=1;k<=extCells;k++)pts.push([opx[N-1]+k*hx*cst,opy[N-1]+k*hy*cst]);" +
-            "var F=function(v){return v.toFixed(1)};" +
-            "var d='M'+F(pts[0][0])+','+F(pts[0][1]),tl=0,cl=[0];" +
-            "for(var i=1;i<pts.length;i++){d+=' L'+F(pts[i][0])+','+F(pts[i][1]);" +
-            "var a=pts[i][0]-pts[i-1][0],b=pts[i][1]-pts[i-1][1];tl+=Math.sqrt(a*a+b*b);cl.push(tl)}" +
-            "return{d:d,tl:tl,cl:cl,sl:cl[N]+te,te:te}};" +
-            // --- Pipe-flow exit animation ---
-            // Replaces arrow shape with a thick stroked line, slides it forward using stroke-dashoffset.
-            // No shape rebuilding = no distortion. Like water flowing through a pipe.
-            "window._uA=function(el,opx,opy,hx,hy,cst,bh,hh,mg,cs,totS,dur){" +
-            "var N=opx.length,pa=el.querySelectorAll('path');" +
-            "var color=el.querySelector('.arrow-body').getAttribute('fill');" +
-            "for(var i=0;i<pa.length;i++)pa[i].style.display='none';" +
-            "var p=window._mkPipe(opx,opy,N,hx,hy,cst,mg,cs,totS+2);" +
-            "var ns='http://www.w3.org/2000/svg',pipe=document.createElementNS(ns,'path');" +
-            "pipe.setAttribute('d',p.d);pipe.setAttribute('fill','none');" +
-            "pipe.setAttribute('stroke',color);pipe.setAttribute('stroke-width',String(bh*2.2));" +
-            "pipe.setAttribute('stroke-linecap','round');pipe.setAttribute('stroke-linejoin','round');" +
-            "pipe.setAttribute('stroke-dasharray',p.sl.toFixed(1)+' '+String(p.tl*2));" +
-            "el.appendChild(pipe);" +
-            "var st=performance.now();" +
-            "function fr(now){var t=Math.min(1,(now-st)/dur);" +
-            "pipe.setAttribute('stroke-dashoffset',String(-t*p.tl));" +
-            "if(t<1)requestAnimationFrame(fr);else el.style.display='none'}" +
-            "el.getBoundingClientRect();requestAnimationFrame(fr)};" +
-            // --- Pipe-flow bump animation ---
-            // Overlays a red pipe on top of the arrow (no hiding original paths).
-            // Pipe slides forward to collision, then back. Original arrow stays intact.
-            "window._uB=function(el,opx,opy,hx,hy,cst,bh,hh,mg,cs,bmpS,dur){" +
-            "var N=opx.length;" +
-            "var ext=Math.ceil(bmpS)+1;" +
-            "var p=window._mkPipe(opx,opy,N,hx,hy,cst,mg,cs,ext);" +
-            "var ns='http://www.w3.org/2000/svg',pipe=document.createElementNS(ns,'path');" +
-            "pipe.setAttribute('d',p.d);pipe.setAttribute('fill','none');" +
-            "pipe.setAttribute('stroke','#c62828');pipe.setAttribute('stroke-width',String(bh*2.4));" +
-            "pipe.setAttribute('stroke-linecap','round');pipe.setAttribute('stroke-linejoin','round');" +
-            "pipe.setAttribute('stroke-dasharray',p.sl.toFixed(1)+' '+String(p.tl*2));" +
-            "el.appendChild(pipe);" +
-            "var maxD=bmpS*cst,pk=0.4,st=performance.now();" +
-            "function fr(now){var t=Math.min(1,(now-st)/dur),off;" +
-            "if(t<pk){var ft=t/pk;off=ft*(2-ft)*maxD}" +
-            "else{var bt=(t-pk)/(1-pk);off=(1-bt*bt*(3-2*bt))*maxD}" +
-            "pipe.setAttribute('stroke-dashoffset',String(-off));" +
-            "if(t<1)requestAnimationFrame(fr);" +
-            "else{if(pipe.parentNode)pipe.parentNode.removeChild(pipe)}}" +
-            "el.getBoundingClientRect();requestAnimationFrame(fr)}" +
-            "}"
-        );
+        // Inject JS pipe-flow animation functions (once per page)
+        getElement().executeJs("""
+                if (!window._buildPipePath) {
+
+                    // Build an SVG polyline path through segment centers + extension cells,
+                    // returning the path string and cumulative segment lengths.
+                    window._buildPipePath = function(centersX, centersY, segCount, headDirX, headDirY,
+                                                     cellStep, margin, cellSize, extraCells) {
+                        var dirX, dirY;
+                        if (segCount > 1) {
+                            dirX = centersX[1] - centersX[0];
+                            dirY = centersY[1] - centersY[0];
+                        } else {
+                            dirX = headDirX * cellStep;
+                            dirY = headDirY * cellStep;
+                        }
+                        var dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
+                        if (dirLen > 0.01) { dirX /= dirLen; dirY /= dirLen; }
+
+                        var tailExtend = cellSize / 2 - margin;
+                        var points = [[centersX[0] - dirX * tailExtend, centersY[0] - dirY * tailExtend]];
+                        for (var i = 0; i < segCount; i++) {
+                            points.push([centersX[i], centersY[i]]);
+                        }
+                        for (var k = 1; k <= extraCells; k++) {
+                            points.push([
+                                centersX[segCount - 1] + k * headDirX * cellStep,
+                                centersY[segCount - 1] + k * headDirY * cellStep
+                            ]);
+                        }
+
+                        var fmt = function(v) { return v.toFixed(1); };
+                        var pathData = 'M' + fmt(points[0][0]) + ',' + fmt(points[0][1]);
+                        var totalLength = 0;
+                        var cumLengths = [0];
+                        for (var i = 1; i < points.length; i++) {
+                            pathData += ' L' + fmt(points[i][0]) + ',' + fmt(points[i][1]);
+                            var dx = points[i][0] - points[i - 1][0];
+                            var dy = points[i][1] - points[i - 1][1];
+                            totalLength += Math.sqrt(dx * dx + dy * dy);
+                            cumLengths.push(totalLength);
+                        }
+                        return {
+                            pathData: pathData,
+                            totalLength: totalLength,
+                            cumLengths: cumLengths,
+                            snakeLength: cumLengths[segCount] + tailExtend,
+                            tailExtend: tailExtend
+                        };
+                    };
+
+                    // Pipe-flow exit animation:
+                    // Replaces arrow shape with a thick stroked line, slides it forward
+                    // using stroke-dashoffset. Like water flowing through a pipe.
+                    window._animateExit = function(el, centersX, centersY, headDirX, headDirY,
+                                                   cellStep, bodyHalf, headHalf, margin, cellSize,
+                                                   totalSteps, duration) {
+                        var segCount = centersX.length;
+                        var paths = el.querySelectorAll('path');
+                        var color = el.querySelector('.arrow-body').getAttribute('fill');
+                        for (var i = 0; i < paths.length; i++) paths[i].style.display = 'none';
+
+                        var pipe = window._buildPipePath(centersX, centersY, segCount,
+                            headDirX, headDirY, cellStep, margin, cellSize, totalSteps + 2);
+                        var svgNs = 'http://www.w3.org/2000/svg';
+                        var pipeEl = document.createElementNS(svgNs, 'path');
+                        pipeEl.setAttribute('d', pipe.pathData);
+                        pipeEl.setAttribute('fill', 'none');
+                        pipeEl.setAttribute('stroke', color);
+                        pipeEl.setAttribute('stroke-width', String(bodyHalf * 2.2));
+                        pipeEl.setAttribute('stroke-linecap', 'round');
+                        pipeEl.setAttribute('stroke-linejoin', 'round');
+                        pipeEl.setAttribute('stroke-dasharray',
+                            pipe.snakeLength.toFixed(1) + ' ' + String(pipe.totalLength * 2));
+                        el.appendChild(pipeEl);
+
+                        var startTime = performance.now();
+                        function frame(now) {
+                            var progress = Math.min(1, (now - startTime) / duration);
+                            pipeEl.setAttribute('stroke-dashoffset', String(-progress * pipe.totalLength));
+                            if (progress < 1) requestAnimationFrame(frame);
+                            else el.style.display = 'none';
+                        }
+                        el.getBoundingClientRect();
+                        requestAnimationFrame(frame);
+                    };
+
+                    // Bump animation:
+                    // Translates the entire arrow group forward toward the collision,
+                    // then bounces it back. Preserves the arrow shape and arrowhead.
+                    window._animateBump = function(el, headDirX, headDirY,
+                                                   cellStep, bumpDist, duration) {
+                        var body = el.querySelector('.arrow-body');
+                        var originalColor = body ? body.getAttribute('fill') : null;
+
+                        var maxDist = bumpDist * cellStep;
+                        var peakFraction = 0.4;
+                        var startTime = performance.now();
+                        function frame(now) {
+                            var progress = Math.min(1, (now - startTime) / duration);
+                            var offset;
+                            if (progress < peakFraction) {
+                                // Ease-out forward phase
+                                var forwardT = progress / peakFraction;
+                                offset = forwardT * (2 - forwardT) * maxDist;
+                                // Flash red as arrow approaches collision
+                                if (body) body.setAttribute('fill', '#c62828');
+                            } else {
+                                // Smooth-step backward phase
+                                var backT = (progress - peakFraction) / (1 - peakFraction);
+                                offset = (1 - backT * backT * (3 - 2 * backT)) * maxDist;
+                                // Restore color on return
+                                if (body && originalColor) body.setAttribute('fill', originalColor);
+                            }
+                            var tx = headDirX * offset;
+                            var ty = headDirY * offset;
+                            el.setAttribute('transform', 'translate(' + tx.toFixed(1) + ',' + ty.toFixed(1) + ')');
+                            if (progress < 1) requestAnimationFrame(frame);
+                            else el.removeAttribute('transform');
+                        }
+                        el.getBoundingClientRect();
+                        requestAnimationFrame(frame);
+                    };
+                }
+                """);
     }
 }
