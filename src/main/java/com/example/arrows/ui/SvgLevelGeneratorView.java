@@ -19,8 +19,8 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.upload.Upload;
-import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.dom.Element;
+import com.vaadin.flow.server.streams.UploadHandler;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLink;
 
@@ -140,26 +140,27 @@ public class SvgLevelGeneratorView extends VerticalLayout {
         orLabel.addClassName("sub-label-upload");
         panel.add(orLabel);
 
-        MemoryBuffer buffer = new MemoryBuffer();
-        Upload upload = new Upload(buffer);
+        Upload upload = new Upload(UploadHandler.inMemory((metadata, data) -> {
+            try {
+                currentSvg = new String(data, StandardCharsets.UTF_8);
+                selectedPresetName = metadata.fileName();
+                getUI().ifPresent(ui -> ui.access(() -> {
+                    updatePresetSelection();
+                    Notification.show("SVG loaded: " + metadata.fileName(),
+                            3000, Notification.Position.BOTTOM_START)
+                            .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                }));
+            } catch (Exception e) {
+                getUI().ifPresent(ui -> ui.access(() ->
+                    Notification.show("Error reading SVG: " + e.getMessage(),
+                            3000, Notification.Position.BOTTOM_START)
+                            .addThemeVariants(NotificationVariant.LUMO_ERROR)
+                ));
+            }
+        }));
         upload.setAcceptedFileTypes(".svg", "image/svg+xml");
         upload.setMaxFiles(1);
         upload.setMaxFileSize(1024 * 1024);
-        upload.addSucceededListener(event -> {
-            try {
-                InputStream is = buffer.getInputStream();
-                currentSvg = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-                selectedPresetName = event.getFileName();
-                updatePresetSelection();
-                Notification.show("SVG loaded: " + event.getFileName(),
-                        3000, Notification.Position.BOTTOM_START)
-                        .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-            } catch (Exception e) {
-                Notification.show("Error reading SVG: " + e.getMessage(),
-                        3000, Notification.Position.BOTTOM_START)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            }
-        });
         panel.add(upload);
 
         // --- Settings section ---

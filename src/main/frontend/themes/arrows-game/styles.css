@@ -36,6 +36,7 @@
     font-weight: bold;
     font-size: 0.95em;
     align-self: center;
+    margin: 8px 0;
 }
 
 .stats-group {
@@ -88,6 +89,70 @@
 /* Arrow group */
 .arrow-group {
     cursor: pointer;
+}
+
+/* Player cursor rings */
+.cursor-ring {
+    pointer-events: none;
+}
+
+/* Players side panel */
+.players-panel {
+    position: fixed;
+    right: 16px;
+    top: 16px;
+    width: 180px;
+    background: #16213e;
+    border-radius: 12px;
+    padding: 12px 14px;
+    border: 1px solid #333355;
+    z-index: 100;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.panel-title {
+    color: #666680;
+    font-family: monospace;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.player-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.player-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.player-name-text {
+    color: #e0e0f0;
+    font-family: monospace;
+    font-size: 0.82em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-you-badge {
+    color: #666680;
+    font-family: monospace;
+    font-size: 0.7em;
+    flex-shrink: 0;
 }
 
 /* Buttons */

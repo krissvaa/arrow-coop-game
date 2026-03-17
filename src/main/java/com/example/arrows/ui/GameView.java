@@ -1,11 +1,15 @@
 package com.example.arrows.ui;
 
 import com.example.arrows.model.Direction;
+import com.example.arrows.signals.CursorService;
+import com.example.arrows.signals.CursorSnapshot;
 import com.example.arrows.signals.GameService;
 import com.example.arrows.signals.GameSnapshot;
 import com.example.arrows.signals.GameSnapshot.ArrowData;
 import com.example.arrows.signals.MoveResult;
 import com.vaadin.flow.component.AttachEvent;
+import com.vaadin.flow.component.ClientCallable;
+import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
@@ -23,12 +27,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 @Route("")
 public class GameView extends VerticalLayout {
 
     private final GameService gameService;
+    private final CursorService cursorService;
     private final SharedValueSignal<GameSnapshot> gameSignal;
+    private final SharedValueSignal<CursorSnapshot> cursorSignal;
 
     private Div boardContainer;
     private Span movesLabel;
@@ -52,13 +59,24 @@ public class GameView extends VerticalLayout {
     // Tracks last seen move timestamp for spectator animation detection
     private long lastSeenMoveTs = 0;
 
+    // Per-player identity
+    private final String playerId = UUID.randomUUID().toString();
+    private final String playerName = CursorService.generateName();
+    private final String playerColor = CursorService.nextColor();
+
+    // Players panel
+    private Div playersPanel;
+    private Div playersList;
+
     // Board geometry constants
     private static final int CELL_PAD = 2;
     private static final int BOARD_PAD = 6;
 
-    public GameView(GameService gameService) {
+    public GameView(GameService gameService, CursorService cursorService) {
         this.gameService = gameService;
+        this.cursorService = cursorService;
         this.gameSignal = gameService.gameState();
+        this.cursorSignal = cursorService.cursorState();
 
         setSizeFull();
         setAlignItems(Alignment.CENTER);
@@ -149,6 +167,20 @@ public class GameView extends VerticalLayout {
         styleButton(nextLevelBtn, true);
         nextLevelBtn.setVisible(false);
         add(nextLevelBtn);
+
+        // Floating players panel (CSS position: fixed)
+        playersPanel = new Div();
+        playersPanel.addClassName("players-panel");
+
+        Span panelTitle = new Span("Players");
+        panelTitle.addClassName("panel-title");
+        playersPanel.add(panelTitle);
+
+        playersList = new Div();
+        playersList.addClassName("players-list");
+        playersPanel.add(playersList);
+
+        add(playersPanel);
     }
 
     // ====== Reactive signal bindings ======
@@ -199,6 +231,19 @@ public class GameView extends VerticalLayout {
             renderSvgBoard(snap, null, null);
             checkEndState(snap);
         });
+
+        // Cursor/presence effect — separate signal, won't trigger board re-render
+        Signal.effect(this, ctx -> {
+            CursorSnapshot cSnap = cursorSignal.get();
+            if (cSnap == null) return;
+
+            updatePlayersPanel(cSnap.players());
+
+            GameSnapshot gameSnap = gameSignal.peek(); // non-tracking read
+            if (gameSnap != null) {
+                renderCursors(cSnap.players(), cellSize(gameSnap.gridSize()));
+            }
+        });
     }
 
     // ====== SVG Board Rendering ======
@@ -228,6 +273,7 @@ public class GameView extends VerticalLayout {
         svg.setAttribute("width", String.valueOf(totalSize));
         svg.setAttribute("height", String.valueOf(totalSize));
         svg.setAttribute("class", "board-svg");
+        svg.setAttribute("data-cs", String.valueOf(cs));
 
         // Defs
         Element defs = new Element("defs");
@@ -312,6 +358,12 @@ public class GameView extends VerticalLayout {
         }
 
         boardContainer.getElement().appendChild(svg);
+
+        // Re-apply cursors on the new SVG
+        CursorSnapshot cSnap = cursorSignal.peek();
+        if (cSnap != null && !cSnap.players().isEmpty()) {
+            renderCursors(cSnap.players(), cs);
+        }
     }
 
     private int cellX(int col, int cs) {
@@ -788,7 +840,7 @@ public class GameView extends VerticalLayout {
     private String heartsDisplay(int hearts) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 3; i++) {
-            sb.append(i < hearts ? "\u2764" : "\u2661");
+            sb.append(i < hearts ? "\u2665" : "\u2661");
             if (i < 2) sb.append(" ");
         }
         return sb.toString();
@@ -810,11 +862,141 @@ public class GameView extends VerticalLayout {
         btn.addClassName(primary ? "btn-primary" : "btn-secondary");
     }
 
+    // ====== Cursor ======
+
+    @ClientCallable
+    public void onCursorMove(int row, int col) {
+        cursorService.updateCursor(playerId, row, col);
+    }
+
+    @ClientCallable
+    public void onCursorLeave() {
+        cursorService.removeCursor(playerId);
+    }
+
+    private void renderCursors(List<CursorSnapshot.PlayerPresence> players, int cs) {
+        // Build JS array literal with cursor data (skip own, skip off-board)
+        StringBuilder jsArr = new StringBuilder("[");
+        boolean first = true;
+        for (var p : players) {
+            if (p.playerId().equals(playerId)) continue;
+            if (!p.isOnBoard()) continue;
+            if (!first) jsArr.append(",");
+            first = false;
+            jsArr.append("{x:").append(cellX(p.cursorCol(), cs))
+                 .append(",y:").append(cellY(p.cursorRow(), cs))
+                 .append(",w:").append(cs)
+                 .append(",color:'").append(p.color()).append("'")
+                 .append(",ini:'").append(p.initials()).append("'")
+                 .append(",k:'").append(p.cursorRow()).append("_").append(p.cursorCol()).append("'}");
+        }
+        jsArr.append("]");
+
+        getElement().executeJs(
+            "var svg = this.querySelector('.board-svg');" +
+            "if (!svg) return;" +
+            "svg.querySelectorAll('.cursor-ring').forEach(function(e){e.remove();});" +
+            "var ns = 'http://www.w3.org/2000/svg';" +
+            "var data = " + jsArr + ";" +
+            // Group by cell key for overlap handling
+            "var grps = {};" +
+            "for (var i = 0; i < data.length; i++) {" +
+            "  var k = data[i].k;" +
+            "  if (!grps[k]) grps[k] = [];" +
+            "  grps[k].push(data[i]);" +
+            "}" +
+            "for (var k in grps) {" +
+            "  var arr = grps[k];" +
+            "  for (var j = 0; j < arr.length; j++) {" +
+            "    var c = arr[j];" +
+            "    var off = j * 4;" +
+            "    var g = document.createElementNS(ns, 'g');" +
+            "    g.setAttribute('class', 'cursor-ring');" +
+            // Ring rect — grows outward for stacked cursors
+            "    var r = document.createElementNS(ns, 'rect');" +
+            "    r.setAttribute('x', c.x - off - 1);" +
+            "    r.setAttribute('y', c.y - off - 1);" +
+            "    r.setAttribute('width', c.w + (off + 1) * 2);" +
+            "    r.setAttribute('height', c.w + (off + 1) * 2);" +
+            "    r.setAttribute('rx', '8');" +
+            "    r.setAttribute('fill', 'none');" +
+            "    r.setAttribute('stroke', c.color);" +
+            "    r.setAttribute('stroke-width', '2.5');" +
+            "    r.setAttribute('opacity', '0.7');" +
+            "    g.appendChild(r);" +
+            // Initials badge — top-right corner, spreads left for overlaps
+            "    var br = 8;" +
+            "    var bx = c.x + c.w - br + 2 - j * (br * 2 + 3);" +
+            "    var by = c.y - br + 2;" +
+            "    var badge = document.createElementNS(ns, 'circle');" +
+            "    badge.setAttribute('cx', bx);" +
+            "    badge.setAttribute('cy', by);" +
+            "    badge.setAttribute('r', br);" +
+            "    badge.setAttribute('fill', c.color);" +
+            "    badge.setAttribute('stroke', '#0f0f23');" +
+            "    badge.setAttribute('stroke-width', '1.5');" +
+            "    g.appendChild(badge);" +
+            "    var t = document.createElementNS(ns, 'text');" +
+            "    t.setAttribute('x', bx);" +
+            "    t.setAttribute('y', by);" +
+            "    t.setAttribute('text-anchor', 'middle');" +
+            "    t.setAttribute('dominant-baseline', 'central');" +
+            "    t.setAttribute('fill', 'white');" +
+            "    t.setAttribute('font-size', '9');" +
+            "    t.setAttribute('font-weight', 'bold');" +
+            "    t.setAttribute('font-family', 'monospace');" +
+            "    t.textContent = c.ini;" +
+            "    g.appendChild(t);" +
+            "    svg.appendChild(g);" +
+            "  }" +
+            "}"
+        );
+    }
+
+    // ====== Players panel ======
+
+    private void updatePlayersPanel(List<CursorSnapshot.PlayerPresence> players) {
+        playersList.removeAll();
+
+        // Self first, then alphabetical
+        var sorted = new ArrayList<>(players);
+        sorted.sort((a, b) -> {
+            if (a.playerId().equals(playerId)) return -1;
+            if (b.playerId().equals(playerId)) return 1;
+            return a.name().compareTo(b.name());
+        });
+
+        for (var player : sorted) {
+            Div entry = new Div();
+            entry.addClassName("player-entry");
+
+            Span dot = new Span();
+            dot.addClassName("player-dot");
+            dot.getStyle().set("background-color", player.color());
+
+            Span nameSpan = new Span(player.name());
+            nameSpan.addClassName("player-name-text");
+
+            entry.add(dot, nameSpan);
+
+            if (player.playerId().equals(playerId)) {
+                Span youBadge = new Span("(you)");
+                youBadge.addClassName("player-you-badge");
+                entry.add(youBadge);
+            }
+
+            playersList.add(entry);
+        }
+    }
+
     // ====== Lifecycle ======
 
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
+
+        // Register this player's presence
+        cursorService.addPlayer(playerId, playerName, playerColor);
 
         // Inject JS pipe-flow animation functions (once per page)
         getElement().executeJs("""
@@ -941,5 +1123,43 @@ public class GameView extends VerticalLayout {
                     };
                 }
                 """);
+
+        // Cursor tracking — listens on boardContainer (survives SVG re-renders),
+        // reads cellSize from data-cs attribute so it adapts across level changes
+        getElement().executeJs(
+            "var self = this;" +
+            "var container = self.querySelector('.board-container');" +
+            "if (!container || container._cursorTracking) return;" +
+            "container._cursorTracking = true;" +
+            "var boardPad = $0; var cellPad = $1;" +
+            "var lastSend = 0;" +
+            "container.addEventListener('mousemove', function(e) {" +
+            "  var now = Date.now();" +
+            "  if (now - lastSend < 150) return;" +
+            "  var svg = container.querySelector('svg');" +
+            "  if (!svg) return;" +
+            "  var cs = parseInt(svg.getAttribute('data-cs'));" +
+            "  if (!cs) return;" +
+            "  lastSend = now;" +
+            "  var rect = svg.getBoundingClientRect();" +
+            "  var svgW = parseFloat(svg.getAttribute('width'));" +
+            "  var scale = rect.width / svgW;" +
+            "  var px = (e.clientX - rect.left) / scale;" +
+            "  var py = (e.clientY - rect.top) / scale;" +
+            "  var col = Math.floor((px - boardPad) / (cs + cellPad));" +
+            "  var row = Math.floor((py - boardPad) / (cs + cellPad));" +
+            "  if (row >= 0 && col >= 0) self.$server.onCursorMove(row, col);" +
+            "});" +
+            "container.addEventListener('mouseleave', function() {" +
+            "  self.$server.onCursorLeave();" +
+            "});",
+            BOARD_PAD, CELL_PAD
+        );
+    }
+
+    @Override
+    protected void onDetach(DetachEvent detachEvent) {
+        super.onDetach(detachEvent);
+        cursorService.removePlayer(playerId);
     }
 }
