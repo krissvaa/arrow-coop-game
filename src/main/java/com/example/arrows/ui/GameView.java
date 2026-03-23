@@ -7,6 +7,8 @@ import com.example.arrows.signals.GameService;
 import com.example.arrows.signals.GameSnapshot;
 import com.example.arrows.signals.GameSnapshot.ArrowData;
 import com.example.arrows.signals.MoveResult;
+import com.example.arrows.signals.StatsService;
+import com.example.arrows.signals.StatsSnapshot;
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.DetachEvent;
@@ -34,8 +36,10 @@ public class GameView extends VerticalLayout {
 
     private final GameService gameService;
     private final CursorService cursorService;
+    private final StatsService statsService;
     private final SharedValueSignal<GameSnapshot> gameSignal;
     private final SharedValueSignal<CursorSnapshot> cursorSignal;
+    private final SharedValueSignal<StatsSnapshot> statsSignal;
 
     private Div boardContainer;
     private Span movesLabel;
@@ -72,16 +76,18 @@ public class GameView extends VerticalLayout {
     private static final int CELL_PAD = 2;
     private static final int BOARD_PAD = 6;
 
-    public GameView(GameService gameService, CursorService cursorService) {
+    public GameView(GameService gameService, CursorService cursorService, StatsService statsService) {
         this.gameService = gameService;
         this.cursorService = cursorService;
+        this.statsService = statsService;
         this.gameSignal = gameService.gameState();
         this.cursorSignal = cursorService.cursorState();
+        this.statsSignal = statsService.statsState();
 
-        setSizeFull();
+        setWidthFull();
         setAlignItems(Alignment.CENTER);
         setPadding(true);
-        addClassName("game-view");
+        setId("game-view");
 
         buildUI();
         setupSignalBindings();
@@ -94,21 +100,22 @@ public class GameView extends VerticalLayout {
         VerticalLayout header = new VerticalLayout();
         header.setPadding(false);
         header.setSpacing(false);
-        header.addClassName("header");
+        header.setId("header");
 
         // Row 1: title + actions
         HorizontalLayout titleRow = new HorizontalLayout();
         titleRow.setWidthFull();
         titleRow.setAlignItems(Alignment.BASELINE);
         titleRow.setJustifyContentMode(JustifyContentMode.BETWEEN);
-        titleRow.addClassName("title-row");
+        titleRow.setId("title-row");
 
         Span title = new Span("Arrows Puzzle");
-        title.addClassName("game-title");
+        title.setId("game-title");
 
+        // Desktop: buttons shown inline
         HorizontalLayout actions = new HorizontalLayout();
         actions.setAlignItems(Alignment.CENTER);
-        actions.addClassName("header-actions");
+        actions.setId("header-actions");
 
         restartBtn = new Button("Restart", e -> {
             animatingUntil = 0;
@@ -122,12 +129,43 @@ public class GameView extends VerticalLayout {
         customBtn.addClassName("btn-green");
 
         actions.add(restartBtn, customBtn);
-        titleRow.add(title, actions);
+
+        // Mobile: kebab menu (vertical ellipsis) with dropdown
+        Div kebabWrapper = new Div();
+        kebabWrapper.setId("kebab-wrapper");
+
+        Button kebabBtn = new Button("\u22EE"); // vertical ellipsis character
+        kebabBtn.setId("kebab-btn");
+        kebabBtn.addClassName("btn-secondary");
+
+        Div kebabMenu = new Div();
+        kebabMenu.setId("kebab-menu");
+
+        Button restartBtn2 = new Button("Restart", e -> {
+            animatingUntil = 0;
+            gameService.restartLevel();
+            closeDialog();
+            kebabMenu.getElement().executeJs("this.classList.remove('open')");
+        });
+        styleButton(restartBtn2, false);
+
+        Button customBtn2 = new Button("Custom Level", e -> {
+            getUI().ifPresent(ui -> ui.navigate(SvgLevelGeneratorView.class));
+        });
+        customBtn2.addClassName("btn-green");
+
+        kebabMenu.add(restartBtn2, customBtn2);
+        kebabWrapper.add(kebabBtn, kebabMenu);
+
+        kebabBtn.getElement().addEventListener("click", e ->
+                kebabMenu.getElement().executeJs("this.classList.toggle('open')"));
+
+        titleRow.add(title, actions, kebabWrapper);
         header.add(titleRow);
 
         // Row 2: level name (centered)
         levelTitle = new Span();
-        levelTitle.addClassName("level-title");
+        levelTitle.setId("level-title");
         header.add(levelTitle);
 
         // Row 3: stacked stats (centered)
@@ -135,10 +173,10 @@ public class GameView extends VerticalLayout {
         stats.setAlignItems(Alignment.END);
         stats.setJustifyContentMode(JustifyContentMode.CENTER);
         stats.setWidthFull();
-        stats.addClassName("stats-group");
+        stats.setId("stats-group");
 
         heartsLabel = new Span();
-        heartsLabel.addClassName("hearts-label");
+        heartsLabel.setId("hearts-label");
 
         movesLabel = new Span();
         movesLabel.addClassName("stat-value");
@@ -156,7 +194,7 @@ public class GameView extends VerticalLayout {
         add(header);
 
         boardContainer = new Div();
-        boardContainer.addClassName("board-container");
+        boardContainer.setId("board-container");
         add(boardContainer);
 
         nextLevelBtn = new Button("Next Level", e -> {
@@ -170,14 +208,14 @@ public class GameView extends VerticalLayout {
 
         // Floating players panel (CSS position: fixed)
         playersPanel = new Div();
-        playersPanel.addClassName("players-panel");
+        playersPanel.setId("players-panel");
 
         Span panelTitle = new Span("Players");
-        panelTitle.addClassName("panel-title");
+        panelTitle.setId("panel-title");
         playersPanel.add(panelTitle);
 
         playersList = new Div();
-        playersList.addClassName("players-list");
+        playersList.setId("players-list");
         playersPanel.add(playersList);
 
         add(playersPanel);
@@ -237,7 +275,9 @@ public class GameView extends VerticalLayout {
             CursorSnapshot cSnap = cursorSignal.get();
             if (cSnap == null) return;
 
-            updatePlayersPanel(cSnap.players());
+            StatsSnapshot sSnap = statsSignal.get();
+
+            updatePlayersPanel(cSnap.players(), sSnap);
 
             GameSnapshot gameSnap = gameSignal.peek(); // non-tracking read
             if (gameSnap != null) {
@@ -250,9 +290,9 @@ public class GameView extends VerticalLayout {
 
     private int cellSize(int gridSize) {
         // Adaptive: small grids get bigger cells, large grids pack tightly
-        int target = gridSize <= 8 ? 420 : 520;
+        int target = gridSize <= 6 ? 420 : gridSize <= 10 ? 500 : 580;
         int available = target - BOARD_PAD * 2 - (gridSize - 1) * CELL_PAD;
-        return Math.min(56, Math.max(14, available / gridSize));
+        return Math.min(60, Math.max(16, available / gridSize));
     }
 
     private int boardPixels(int gridSize) {
@@ -268,11 +308,14 @@ public class GameView extends VerticalLayout {
         int cs = cellSize(gs);
         int totalSize = boardPixels(gs);
 
+        int shadowPad = 4; // just enough for drop shadow bleed at edges
+        int vbSize = totalSize + shadowPad * 2;
+
         Element svg = new Element("svg");
-        svg.setAttribute("viewBox", "0 0 " + totalSize + " " + totalSize);
-        svg.setAttribute("width", String.valueOf(totalSize));
-        svg.setAttribute("height", String.valueOf(totalSize));
-        svg.setAttribute("class", "board-svg");
+        // Note: viewBox set via JS below (Vaadin lowercases attrs, SVG needs camelCase)
+        svg.setAttribute("width", String.valueOf(vbSize));
+        svg.setAttribute("height", String.valueOf(vbSize));
+        svg.setAttribute("id", "board-svg");
         svg.setAttribute("data-cs", String.valueOf(cs));
 
         // Defs
@@ -359,6 +402,14 @@ public class GameView extends VerticalLayout {
 
         boardContainer.getElement().appendChild(svg);
 
+        // Set viewBox via JS — Vaadin lowercases attribute names but SVG needs camelCase "viewBox"
+        String viewBox = (-shadowPad) + " " + (-shadowPad) + " " + vbSize + " " + vbSize;
+        boardContainer.getElement().executeJs(
+            "var svg = this.querySelector('#board-svg');" +
+            "if (svg) svg.setAttribute('viewBox', $0);",
+            viewBox
+        );
+
         // Re-apply cursors on the new SVG
         CursorSnapshot cSnap = cursorSignal.peek();
         if (cSnap != null && !cSnap.players().isEmpty()) {
@@ -381,6 +432,18 @@ public class GameView extends VerticalLayout {
 
         String pathD = buildArrowPath(arrow, cs);
         String color = isFailed ? "#c62828" : arrow.color();
+
+        // Invisible hit area — wider than the visible arrow for easier clicking/tapping.
+        // Uses a large stroke so the touch target stays usable on mobile where the
+        // SVG is scaled down (44px+ recommended physical size).
+        Element hitArea = new Element("path");
+        hitArea.setAttribute("d", pathD);
+        hitArea.setAttribute("fill", "transparent");
+        hitArea.setAttribute("stroke", "transparent");
+        hitArea.setAttribute("stroke-width", String.valueOf(Math.max(36, cs)));
+        hitArea.setAttribute("stroke-linejoin", "round");
+        hitArea.setAttribute("stroke-linecap", "round");
+        g.appendChild(hitArea);
 
         // Main colored body
         Element body = new Element("path");
@@ -594,7 +657,7 @@ public class GameView extends VerticalLayout {
         Direction dir = arrow.headDirection();
         int cellStep = cs + CELL_PAD;
 
-        double bumpDist = Math.max(0.5, bumpSteps + 0.5);
+        double bumpDist = Math.min(2.0, Math.max(0.5, bumpSteps + 0.5));
         int duration = Math.max(500, Math.min(1000, (int)(bumpDist * 80) + segCount * 30));
 
         el.executeJs(
@@ -661,6 +724,16 @@ public class GameView extends VerticalLayout {
         if (result == MoveResult.GAME_OVER || result == MoveResult.ALREADY_EXITED) {
             animatingUntil = 0;
             return;
+        }
+
+        // Record per-player stats
+        if (result == MoveResult.SUCCESS || result == MoveResult.WIN) {
+            statsService.recordCorrectMove(playerId);
+        } else if (result == MoveResult.COLLISION || result == MoveResult.LOST) {
+            statsService.recordFailedMove(playerId);
+        }
+        if (result == MoveResult.WIN) {
+            statsService.recordLevelCleared(playerId);
         }
 
         if (result == MoveResult.WIN || result == MoveResult.LOST) {
@@ -893,7 +966,7 @@ public class GameView extends VerticalLayout {
         jsArr.append("]");
 
         getElement().executeJs(
-            "var svg = this.querySelector('.board-svg');" +
+            "var svg = this.querySelector('#board-svg');" +
             "if (!svg) return;" +
             "svg.querySelectorAll('.cursor-ring').forEach(function(e){e.remove();});" +
             "var ns = 'http://www.w3.org/2000/svg';" +
@@ -955,8 +1028,16 @@ public class GameView extends VerticalLayout {
 
     // ====== Players panel ======
 
-    private void updatePlayersPanel(List<CursorSnapshot.PlayerPresence> players) {
+    private void updatePlayersPanel(List<CursorSnapshot.PlayerPresence> players, StatsSnapshot statsSnap) {
         playersList.removeAll();
+
+        // Build a lookup map for stats by playerId
+        Map<String, StatsSnapshot.PlayerStats> statsMap = new HashMap<>();
+        if (statsSnap != null) {
+            for (var ps : statsSnap.players()) {
+                statsMap.put(ps.playerId(), ps);
+            }
+        }
 
         // Self first, then alphabetical
         var sorted = new ArrayList<>(players);
@@ -968,7 +1049,11 @@ public class GameView extends VerticalLayout {
 
         for (var player : sorted) {
             Div entry = new Div();
-            entry.addClassName("player-entry");
+            entry.addClassName("player-entry-block");
+
+            // Name row
+            Div nameRow = new Div();
+            nameRow.addClassName("player-entry");
 
             Span dot = new Span();
             dot.addClassName("player-dot");
@@ -977,12 +1062,25 @@ public class GameView extends VerticalLayout {
             Span nameSpan = new Span(player.name());
             nameSpan.addClassName("player-name-text");
 
-            entry.add(dot, nameSpan);
+            nameRow.add(dot, nameSpan);
 
             if (player.playerId().equals(playerId)) {
                 Span youBadge = new Span("(you)");
                 youBadge.addClassName("player-you-badge");
-                entry.add(youBadge);
+                nameRow.add(youBadge);
+            }
+
+            entry.add(nameRow);
+
+            // Stats row
+            StatsSnapshot.PlayerStats ps = statsMap.get(player.playerId());
+            if (ps != null && (ps.correctMoves() > 0 || ps.failedMoves() > 0 || ps.levelsCleared() > 0)) {
+                Span statsLine = new Span(
+                        ps.correctMoves() + "\u2713  "
+                        + ps.failedMoves() + "\u2717  "
+                        + ps.levelsCleared() + "\u2605");
+                statsLine.addClassName("player-stats");
+                entry.add(statsLine);
             }
 
             playersList.add(entry);
@@ -995,8 +1093,9 @@ public class GameView extends VerticalLayout {
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
 
-        // Register this player's presence
+        // Register this player's presence and stats
         cursorService.addPlayer(playerId, playerName, playerColor);
+        statsService.addPlayer(playerId);
 
         // Inject JS pipe-flow animation functions (once per page)
         getElement().executeJs("""
@@ -1124,11 +1223,36 @@ public class GameView extends VerticalLayout {
                 }
                 """);
 
+        // ResizeObserver: measure board-container and set SVG to a square that fits
+        getElement().executeJs(
+            "var container = this.querySelector('#board-container');" +
+            "if (container && !container._boardResizer) {" +
+            "  container._boardResizer = true;" +
+            "  container._lastBoardSize = 0;" +
+            "  var applySize = function() {" +
+            "    var svg = container.querySelector('#board-svg');" +
+            "    if (svg && container._lastBoardSize > 0) {" +
+            "      svg.style.width = container._lastBoardSize + 'px';" +
+            "      svg.style.height = container._lastBoardSize + 'px';" +
+            "    }" +
+            "  };" +
+            "  new ResizeObserver(function(entries) {" +
+            "    var rect = entries[0].contentRect;" +
+            "    var size = Math.floor(Math.min(rect.width, rect.height));" +
+            "    if (size <= 0) return;" +
+            "    container._lastBoardSize = size;" +
+            "    applySize();" +
+            "  }).observe(container);" +
+            "  new MutationObserver(function() { applySize(); })" +
+            "    .observe(container, { childList: true });" +
+            "}"
+        );
+
         // Cursor tracking — listens on boardContainer (survives SVG re-renders),
         // reads cellSize from data-cs attribute so it adapts across level changes
         getElement().executeJs(
             "var self = this;" +
-            "var container = self.querySelector('.board-container');" +
+            "var container = self.querySelector('#board-container');" +
             "if (!container || container._cursorTracking) return;" +
             "container._cursorTracking = true;" +
             "var boardPad = $0; var cellPad = $1;" +
@@ -1161,5 +1285,6 @@ public class GameView extends VerticalLayout {
     protected void onDetach(DetachEvent detachEvent) {
         super.onDetach(detachEvent);
         cursorService.removePlayer(playerId);
+        statsService.removePlayer(playerId);
     }
 }
